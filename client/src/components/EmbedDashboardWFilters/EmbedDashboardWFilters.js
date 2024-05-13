@@ -29,7 +29,7 @@ const EmbedDashboardWFilters = () => {
   useEffect(() => {
     const initialize = async () => {
       const filters = await sdk.ok(sdk.dashboard(923, "dashboard_filters", "listens_to_filters"));
-      console.log(filters["dashboard_filters"][0], "filters");
+      console.log(filters["dashboard_filters"], "filters");
       setDashboardFilters(filters["dashboard_filters"]);
     };
     initialize();
