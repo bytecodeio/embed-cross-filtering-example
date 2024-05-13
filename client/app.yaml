@@ -1,0 +1,10 @@
+env: standard
+runtime: nodejs16
+service: backend
+handlers:
+   - url: /*
+     secure: always
+     static_dir: dist
+   - url: /
+     static_files: dist/index.html
+     upload: dist/index.html
