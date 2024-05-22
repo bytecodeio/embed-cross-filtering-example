@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import styled from "styled-components";
 import { LookerEmbedSDK } from "@looker/embed-sdk";
 import { Space, SpaceVertical } from "@looker/components";
@@ -7,11 +7,16 @@ import { LoadingSpinner } from "../common/LoadingSpinner";
 import { sdk } from "../../helpers/CorsSessionHelper";
 import {
   Filter,
+  RangeModifier,
+  InputDateRange,
   i18nResources,
   ComponentsProvider,
   useSuggestable,
   useExpressionState,
 } from "@looker/filter-components";
+
+import { Button, Form, Modal } from "react-bootstrap";
+
 
 let dashboard = [];
 
@@ -28,8 +33,10 @@ const EmbedDashboardWFilters = () => {
   // Looker API call using the API SDK to get all the available filters for the embedded dashboard
   useEffect(() => {
     const initialize = async () => {
-      const filters = await sdk.ok(sdk.dashboard(923, "dashboard_filters", "listens_to_filters"));
-      console.log(filters["dashboard_filters"], "filters");
+      const filters = await sdk.ok(
+        sdk.dashboard(923, "dashboard_filters", "listens_to_filters")
+      );
+
       setDashboardFilters(filters["dashboard_filters"]);
     };
     initialize();
@@ -38,7 +45,6 @@ const EmbedDashboardWFilters = () => {
   // Set the new selected filter values in state, when selected using the components outside the dashboard
   const handleFilterChange = (newFilterValue, filterName) => {
     dashboard.forEach((dash) => {
-      // // Using the dashboard state, we are sending a message to the iframe to update the filters with the new values
       dash.send("dashboard:filters:update", {
         filters: {
           [filterName]: newFilterValue,
@@ -55,6 +61,10 @@ const EmbedDashboardWFilters = () => {
     setLoading(false);
   };
 
+  const canceller = (event) => {
+    return { cancel: !event.modal };
+  };
+
   /*
    Step 1 Initialization of the EmbedSDK happens when the user first access the application
    See App.js for reference
@@ -67,17 +77,41 @@ const EmbedDashboardWFilters = () => {
       }
 
       el.innerHTML = "";
-      /*
-      Step 2 Create your dashboard (or other piece of embedded content) through a simple set of chained methods
-    */
+
       LookerEmbedSDK.createDashboardWithId(id)
-        // Adds the iframe to the DOM as a child of a specific element
+
         .appendTo(el)
-        // Hides the filters in the embedded dashboard. Custom themes must be enabled on the Looker instance.
-        .withParams({_theme: "{\"show_filters_bar\":false}"})
-        // Performs the call to the auth service to get the iframe's src='' url, places it in the iframe and the client performs the request to Looker
+
+        //
+        // .on("dashboard:filters:changed", (e) => {
+        //   console.log("Filters have been applied or changed.");
+        //   console.log(e);
+        // })
+
+        .on("drillmenu:click", canceller)
+        .on("drillmenu:click", (e) => {
+          const url = e.url;
+          const filters = url.split("::")[1];
+
+          const filterPairs = filters.split(",");
+
+          const filterObject = {};
+
+          filterPairs.forEach((pair) => {
+            const [key, value] = pair.split("=");
+            filterObject[key] = value;
+          });
+
+          dashboard.forEach((dash) => {
+            dash.send("dashboard:filters:update", {
+              filters: filterObject,
+            });
+            dash.send("dashboard:run");
+          });
+        })
+
+        .withParams({ _theme: '{"show_filters_bar":false}' })
         .build()
-        // Establishes event communication between the iframe and parent page
         .connect()
         .then((response) => {
           dashboard.push(response);
@@ -98,7 +132,14 @@ const EmbedDashboardWFilters = () => {
       />
       <LoadingSpinner loading={loading} />
       <ComponentsProvider resources={i18nResources}>
-        <Space m="u3" align="end" width="auto">
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "space-between",
+            marginBottom: "2em",
+          }}
+        >
           {dashboardFilters?.map((filter) => {
             return (
               <DashFilters
@@ -109,20 +150,18 @@ const EmbedDashboardWFilters = () => {
               />
             );
           })}
-        </Space>
+        </div>
       </ComponentsProvider>
       {/* Step 0) we have a simple container, which performs a callback to our makeDashboard function */}
 
-
-<div style={{display:"grid",gridTemplateColumns: "50% 50%"}}>
-      {[923, 927].map((id, index) => (
-        <div key={index}>
-          <p>Dashboard {id}</p>
-          <Dashboard ref={makeDashboard(id)}></Dashboard>
-
-        </div>
-      ))}
-</div>
+      <div style={{ display: "grid", gridTemplateColumns: "50% 50%" }}>
+        {[935, 932].map((id, index) => (
+          <div key={index}>
+            <p>Dashboard {id}</p>
+            <Dashboard ref={makeDashboard(id)}></Dashboard>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
@@ -131,7 +170,7 @@ const EmbedDashboardWFilters = () => {
 const Dashboard = styled.div`
   width: 100%;
   height: 100%;
-  min-height:800px;
+  min-height: 800px;
   bargin-bottom: 200px;
   border: 1px solid #dedede;
   & > iframe {
@@ -139,7 +178,6 @@ const Dashboard = styled.div`
     height: 100%;
   }
 `;
-
 
 export default EmbedDashboardWFilters;
 
@@ -171,14 +209,54 @@ export const DashFilters = ({ filter, expression, onChange }) => {
 
   return (
     <>
-      <FilterLabel>{filter.name}</FilterLabel>
-      <Filter
-        name={filter.name}
-        type={filter.type}
-        config={{ type: "dropdown_menu" }}
-        {...suggestableProps}
-        {...stateProps}
-      />
+      <div style={{ margin: ".5em 0em 1em 0em" }}>
+        <FilterLabel>{filter.name}</FilterLabel>
+        <Filter
+          name={filter.name}
+          type={filter.type}
+          config={{ type: ["button_group", "dropdown_list"] }}
+          {...suggestableProps}
+          {...stateProps}
+        />
+      </div>
+    </>
+  );
+};
+
+export const DashFilters2 = ({
+  filter,
+  expression,
+  onChange,
+  value,
+  setValue,
+}) => {
+  const stateProps = useExpressionState({
+    filter,
+    // These props will likely come from higher up in your application
+    expression,
+    onChange,
+  });
+
+  const { suggestableProps } = useSuggestable({
+    filter,
+    sdk,
+  });
+
+  const FilterLabel = styled.span`
+    font-family: inherit;
+    margin: 0px;
+    padding: 0px;
+    color: rgb(64, 70, 75);
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding-bottom: 0.25rem;
+  `;
+
+  return (
+    <>
+      <div style={{ margin: ".5em 0em" }}>
+        <InputDateRange value={value} />
+      </div>
     </>
   );
 };

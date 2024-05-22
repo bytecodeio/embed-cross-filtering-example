@@ -13,6 +13,9 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
+import "bootstrap/dist/css/bootstrap.min.css";
+import "bootstrap/dist/js/bootstrap.min.js";
+
 
 // import EmbedLookSDK from './components/EmbedLookSDK'
 import { ComponentsProvider } from "@looker/components-providers";
