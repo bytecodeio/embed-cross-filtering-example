@@ -110,7 +110,7 @@ const EmbedDashboardWFilters = () => {
           });
         })
 
-        // .withParams({ _theme: '{"show_filters_bar":false}' })
+       .withParams({ _theme: '{"show_filters_bar":false}' })
         .build()
         .connect()
         .then((response) => {
@@ -219,7 +219,7 @@ export const DashFilters = ({ filter, expression, onChange }) => {
     <>
       <div style={{ margin: ".5em 0em 1em 0em" }}>
         <>
-          <FilterLabel>{filter.name}</FilterLabel>
+          <p style={{fontSize: '12px', marginBottom: '0em'}}>{filter.name}</p>
           <Filter
             name={filter.name}
             type={filter.type}
@@ -262,7 +262,9 @@ export const DashFilters2 = ({ filter, expression, onChange }) => {
     <>
       <div style={{ margin: ".5em 0em 1em 0em" }}>
         <>
+          <p style={{fontSize: '12px', marginBottom: '0em'}}>{filter.name}</p>
           <InputDateRange
+
             name={filter.name}
             type={filter.type}
             value={dateValue}
