@@ -7,16 +7,14 @@ import { LoadingSpinner } from "../common/LoadingSpinner";
 import { sdk } from "../../helpers/CorsSessionHelper";
 import {
   Filter,
-  RangeModifier,
-  InputDateRange,
   i18nResources,
   ComponentsProvider,
   useSuggestable,
   useExpressionState,
 } from "@looker/filter-components";
+import { InputDateRange } from "@looker/components-date/InputDateRange";
 
-import { Button, Form, Modal } from "react-bootstrap";
-
+// import { Button, Form, Modal } from "react-bootstrap";
 
 let dashboard = [];
 
@@ -30,12 +28,11 @@ const EmbedDashboardWFilters = () => {
   // State for the filter values, selected by the filter components located outside the embedded dashboard
   const [filterValues, setFilterValues] = React.useState({});
 
-
   // Looker API call using the API SDK to get all the available filters for the embedded dashboard
   useEffect(() => {
     const initialize = async () => {
       const filters = await sdk.ok(
-        sdk.dashboard(923, "dashboard_filters", "listens_to_filters")
+        sdk.dashboard(935, "dashboard_filters", "listens_to_filters")
       );
 
       setDashboardFilters(filters["dashboard_filters"]);
@@ -45,6 +42,8 @@ const EmbedDashboardWFilters = () => {
 
   // Set the new selected filter values in state, when selected using the components outside the dashboard
   const handleFilterChange = (newFilterValue, filterName) => {
+    console.log(newFilterValue, "newFilterValue");
+    console.log(filterName, "filterName");
     dashboard.forEach((dash) => {
       dash.send("dashboard:filters:update", {
         filters: {
@@ -142,7 +141,15 @@ const EmbedDashboardWFilters = () => {
           }}
         >
           {dashboardFilters?.map((filter) => {
-            return (
+            return filter.ui_config.type === "day_range_picker" ? (
+              <DashFilters2
+                filter={filter}
+                expression={filterValues[filter.name]}
+                onChange={(event) => handleFilterChange(event, filter.name)}
+                // handleFilterChange={handleFilterChange}
+                key={filter.id}
+              />
+            ) : (
               <DashFilters
                 filter={filter}
                 expression={filterValues[filter.name]}
@@ -211,58 +218,63 @@ export const DashFilters = ({ filter, expression, onChange }) => {
   return (
     <>
       <div style={{ margin: ".5em 0em 1em 0em" }}>
-        <FilterLabel>{filter.name}</FilterLabel>
-        <Filter
-          name={filter.name}
-          type={filter.type}
-          config={{ type: ["button_group", "dropdown_list"] }}
-          {...suggestableProps}
-          {...stateProps}
-        />
+        <>
+          <FilterLabel>{filter.name}</FilterLabel>
+          <Filter
+            name={filter.name}
+            type={filter.type}
+            config={{ type: ["button_group", "dropdown_list"] }}
+            {...suggestableProps}
+            {...stateProps}
+          />
+        </>
       </div>
     </>
   );
 };
 
-export const DashFilters2 = ({
-  filter,
-  expression,
-  onChange,
-  value,
-  setValue,
-}) => {
-  const stateProps = useExpressionState({
-    filter,
-    // These props will likely come from higher up in your application
-    expression,
-    onChange,
+export const DashFilters2 = ({ filter, expression, onChange }) => {
+  const defaultValue = filter.default_value;
+
+  const [startDateStr, endDateStr] = defaultValue.split(" to ");
+
+  const fromDate = new Date(startDateStr);
+  const toDate = new Date(endDateStr);
+
+  const [dateValue, setDateValue] = useState({
+    from: fromDate,
+    to: toDate,
   });
 
-  const { suggestableProps } = useSuggestable({
-    filter,
-    sdk,
-  });
-
-
-
-    // const filterType = ["day_range_picker"]
-    //
-    // filterType.includes(filter.ui_config.type)
-
-  const FilterLabel = styled.span`
-    font-family: inherit;
-    margin: 0px;
-    padding: 0px;
-    color: rgb(64, 70, 75);
-    font-size: 0.75rem;
-    font-weight: 500;
-    padding-bottom: 0.25rem;
-  `;
+  const handleDateChange = (newState) => {
+    const fromDateStr = `${newState?.from.getFullYear()}/${String(
+      newState?.from.getMonth() + 1
+    ).padStart(2, "0")}/${String(newState?.from.getDate()).padStart(2, "0")}`;
+    const toDateStr = `${newState?.to.getFullYear()}/${String(
+      newState?.to.getMonth() + 1
+    ).padStart(2, "0")}/${String(newState?.to.getDate()).padStart(2, "0")}`;
+    const dateRangeStr = `${fromDateStr} to ${toDateStr}`;
+    console.log(dateRangeStr, "dateRangeStr");
+    onChange(dateRangeStr, filter.name);
+  };
 
   return (
     <>
-      <div style={{ margin: ".5em 0em" }}>
-        <InputDateRange value={value} />
+      <div style={{ margin: ".5em 0em 1em 0em" }}>
+        <>
+          <InputDateRange
+            name={filter.name}
+            type={filter.type}
+            value={dateValue}
+            onChange={(event) => {
+              setDateValue((prevState) => {
+                const newState = event;
+                handleDateChange(newState);
+                return newState;
+              });
+            }}
+          />
+        </>
       </div>
     </>
   );
